@@ -1,41 +1,49 @@
-import * as goboscript from "goboscript";
-import __wbg_init from "goboscript";
+import __wbg_init, * as goboscript from "goboscript";
 import "Scaffolding";
 const vscode = acquireVsCodeApi();
 
 class main {
 	static init() {
-		this.stage  = new Scaffolding.Scaffolding();
+		this.stage = new Scaffolding.Scaffolding();
 		this.stage.width = 480;
 		this.stage.height = 360;
 		this.stage.setup();
 		this.attachDebugger(this.stage.vm);
+		window.scvm = this.stage.vm;
 		document.getElementById('run').onclick = () => this.onflag();
 		document.getElementById('stop').onclick = () => this.stage.stopAll();
 		document.getElementById('build').onclick = () => this.build();
 		this.onflag();
 	}
 	static async onflag() {
-		let builded;
+		vscode.postMessage({ command: 'clearConsole' });
 		try {
-			builded = await gscompiler.build();
+			this.files = await gscompiler.getFiles();
+			this.builded = await gscompiler.build(this.files);
 		} catch (err) {
-			vscode.postMessage({ command: 'log', text: err.message, type: 'error' });
+			vscode.postMessage({ command: 'log', text: `COMPILE ERROR: ${err.message}`, type: 'error' });
+			this.diagnose(this.builded.artifact);
+			console.error(err);
+			return;
 		}
+		this.diagnose(this.builded.artifact);
 		try {
-			const sb3 = await base64.decode(builded.file).arrayBuffer();
+			const sb3 = await base64.decode(this.builded.file).arrayBuffer();
 			await this.stage.loadProject(sb3);
 			this.stage.appendTo(document.getElementById('stage'));
 			this.stage.greenFlag();
 		} catch (err) {
-			vscode.postMessage({ command: 'log', text: err.message, type: 'error' });
+			vscode.postMessage({ command: 'log', text: `SCAFFOLDING ERROR: ${err.message}`, type: 'error' });
+			this.stage.stopAll();
+			console.error(err);
 		}
+		this.setMonitor(this.stage.vm.runtime.targets);
 	}
 	static async build () {
-		vscode.postMessage({ command: 'builded', file: await base64.decode((await gscompiler.build()).file).arrayBuffer() });
+		vscode.postMessage({ command: 'builded', file: await base64.decode((await gscompiler.build(await gscompiler.getFiles())).file).arrayBuffer() });
 	}
 	static attachDebugger(vm) {
-    	vm.runtime.addAddonBlock({
+		vm.runtime.addAddonBlock({
 			procedureCode: "\u200B\u200Blog\u200B\u200B %s",
 			arguments: ["content"],
 			callback: ({content}) => {
@@ -57,18 +65,113 @@ class main {
 			}
 		})
 	}
+	static diagnose(artifact) {
+		const markers = [];
+		for (const [name, {diagnostics, translation_unit: unit, translation_unit: {path}}] of [...artifact.sprites_diagnostics, ['stage', artifact.stage_diagnostics]]) {
+			if (!diagnostics.length) continue;
+			for (const diag of diagnostics) {
+				const msg = goboscript.diagnostic_to_string(diag, name == "stage" ? artifact.project.stage : artifact.project.sprites.get(name));
+				const [start, incStart] = this.translatePosition(unit, diag.span.start);
+				const [end, incEnd] = this.translatePosition(unit, diag.span.end);
+				const [startLineNumber, startColumn] = this.convertPosition(incStart, start);
+				const [endLineNumber, endColumn] = this.convertPosition(incEnd, end);
+				markers.push({
+					path,
+					msg,
+					startLineNumber: startLineNumber - 1,
+					startColumn: startColumn - 1,
+					endLineNumber: endLineNumber - 1,
+					endColumn: endColumn - 1
+				});
+				vscode.postMessage({ command: 'log', text: `COMPILE ERROR: ${msg} (${path}:${startLineNumber}:${startColumn})`, type: 'error' });
+				console.error(msg);
+			}
+		}
+		vscode.postMessage({ command: 'mark', markers: markers });
+	}
+	static setMonitor(targets) {
+		document.getElementById('var_monitor').innerHTML = '';
+		const funcs = {
+			setXY: (target,) => {
+				document.getElementById(`${target.id}-x`).value = target.x;
+				document.getElementById(`${target.id}-y`).value = target.y;
+			},
+			setVisible: (target) => {
+				document.getElementById(`${target.id}-visible`).value = target.visible;
+			},
+			setSize: (target) => {
+				document.getElementById(`${target.id}-size`).value = target.size;
+			},
+			setDirection: (target) => {
+				document.getElementById(`${target.id}-direction`).value = target.direction;
+			},
+			setCostume: (target) => {
+				document.getElementById(`${target.id}-costume`).value = target.sprite.costumes[target.currentCostume].name;
+			},
+			makeClone: (target, result) => {
+				addMonitor(result);
+			}
+		};
+		const addMonitor = target => {
+			document.getElementById('var_monitor').insertAdjacentHTML('beforeend',
+				`<details name="monitor">
+					<summary>${target.sprite.name}${target.isOriginal ? '' : ' <i>[Clone]</i>'}</summary>
+					<label>X: <input type="text" id="${target.id}-x" readonly /></label>
+					<label>Y: <input type="text" id="${target.id}-y" readonly /></label>
+					<label>Visible: <input type="text" id="${target.id}-visible" readonly /></label>
+					<label>Size: <input type="text" id="${target.id}-size" readonly /></label>
+					<label>Direction: <input type="text" id="${target.id}-direction" readonly /></label>
+					<label>Costume: <input type="text" id="${target.id}-costume" readonly /></label>
+				</details>`);
+			for (const func of Object.keys(funcs)) {
+				if (func != 'makeClone') funcs[func](target);
+				if (!target[func] || target[`_original${func}`]) continue;
+				target[`_original${func}`] = target[func];
+				target[func] = function (...args) {
+					const result = this[`_original${func}`](...args);
+					funcs[func](this, result);
+					return result;
+				};
+			}
+		};
+		for (const target of targets) {
+			if (target.isStage) continue;
+			addMonitor(target);
+		}
+	}
+	static translatePosition(unit, position) {
+		for (const inc of unit.includes) {
+			if (inc.unit_range.start > position) continue;
+			if (inc.unit_range.end <= position) continue;
+			return [inc.source_range.start + (position - inc.unit_range.start), inc];
+		}
+		vscode.postMessage({ command: 'log', text: `COMPILE ERROR: invalid position ${position} in ${unit.path}`, type: 'error' });
+	}
+	static convertPosition({path}, position) {
+		const text = this.getFileText(path);
+		let i = 0
+		let lineNumber = 0
+		for (const line of text) {
+			if (i + line.length >= position) return [lineNumber + 1, position - i + 1]
+			i += line.length + 1
+			lineNumber++
+		}
+		return [0, 0];
+	}
+	static getFileText(path) {
+		return new TextDecoder('utf-8').decode(new Uint8Array(this.files[path].data)).split(/\r?\n/);
+	}
 }
 
 class gscompiler {
-	static async build() {
-		const files = await this.getFiles();
+	static async build(files) {
 		await __wbg_init();
 		goboscript.initialize();
 		return goboscript.build(
 			{
 				files: Object.fromEntries(await Promise.all(Object.entries(files).map(
 					async([path, {data, type}]) => ([
-						`project/${path}`,
+						path,
 						{
 							inner: await base64.encode(typeof data == "string" ? new Blob([data]) : data)
 						}
@@ -88,13 +191,6 @@ class gscompiler {
 			};
 			window.addEventListener('message', handler);
 		});
-		
-		/* {
-			"stage.gs": `# This is the Stage, list more backdrops separated by comma.\ncostumes "blank.svg";\n`,
-			"main.gs": `# This is a sprite.\ncostumes "blank.svg";\n\n# when green flag clicked\nonflag {\n  say "Hello, World!";\n}\n`,
-			"blank.svg": `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg width="0" height="0" xmlns="http://www.w3.org/2000/svg"></svg>\n`,
-			"goboscript.toml": `# goboscript project configuration\n\n# The target number of frames per second (FPS)\nframe_rate = 30\n\n# Maximum number of clones that can exist simultaneously\nmax_clones = 300.0\n\n# If true, removes various limits unrelated to clones or rendering\nno_miscellaneous_limits = false\n\n# If true, disables sprite fencing (sprites can move beyond stage borders)\nno_sprite_fencing = false\n\n# If true, enables frame interpolation for smoother animations\nframe_interpolation = false\n\n# If true, improves pen rendering quality (may affect performance)\nhigh_quality_pen = false\n\n# Width of the stage in pixels\nstage_width = 480\n\n# Height of the stage in pixels\nstage_height = 360\n`
-		} */;
 	}
 }
 

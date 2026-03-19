@@ -1,0 +1,34 @@
+body {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+}
+#stage_container {
+	position: sticky;
+	top: 0;
+	background-color: var(--vscode-editor-background);
+}
+#var_monitor {
+	display: flex;
+	flex-direction: column;
+	gap: .5em;
+	details {
+		summary {
+			user-select: none;
+			cursor: pointer;
+		}
+		&::details-content {
+			margin-left: 1em;
+			display: flex;
+			flex-wrap: wrap;
+			gap: .1em .5em;
+		}
+		input[type="text"] {
+			background-color: var(--vscode-input-background);
+			border-color: var(--vscode-input-border);
+			color: var(--vscode-input-foreground);
+		}
+	}
+	
+	
+}

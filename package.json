@@ -12,6 +12,10 @@
       {
         "command": "gside.openStage",
         "title": "goboscript: Run Project"
+      },
+      {
+        "command": "gside.new",
+        "title": "goboscript: New Project"
       }
     ],
     "menus": {
