@@ -38,7 +38,7 @@ jobs:
         run: |
           cd goboscript_src
           # ブラウザ/拡張機能向けに --target web でビルド
-          wasm-pack build --release --target web
+          wasm-pack build --release
 
       - name: Prepare Extension Folder Structure
         run: |
