@@ -2,7 +2,7 @@
 
 # goboscirpt IDE for VSCode
 
-A powerful development environment for goboscript, designed to streamline your workflow with real-time monitoring and debugging features.**This extenison doesn't support syntax highlight.Please use [the official extension](https://github.com/aspizu/goboscript/tree/main/editors/code).**
+A powerful development environment for goboscript, designed to streamline your workflow with real-time monitoring and debugging features.**This extenison doesn't support syntax highlight.Please use [the official extension](https://github.com/aspizu/goboscript/tree/main/editors/code) additionally.**
 
 ## Features
 
