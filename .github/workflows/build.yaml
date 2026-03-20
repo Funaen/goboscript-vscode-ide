@@ -32,13 +32,14 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          toolchain: "nightly-2026-01-19"
           rustflags: "-A warnings"
 
       - name: Build Goboscript WASM
         run: |
           cd goboscript_src
           # ブラウザ/拡張機能向けに --target web でビルド
-          wasm-pack build --release
+          wasm-pack build --release --target web
 
       - name: Prepare Extension Folder Structure
         run: |
