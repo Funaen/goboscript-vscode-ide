@@ -1,4 +1,4 @@
-[日本語](/Funaen/goboscript-vscode-ide/blob/main/README.ja.md)
+[日本語](README.ja.md)
 
 # goboscirpt IDE for VSCode
 
