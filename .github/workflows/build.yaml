@@ -64,5 +64,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: gside.vsix
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: ${{ github.event.inputs.version || github.ref_name }}
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
