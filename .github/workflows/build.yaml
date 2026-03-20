@@ -1,109 +1,68 @@
-name: Build, Deploy and Release
+name: Build and Package Goboscript Extension
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*' # v1.0.0 などのタグプッシュで Release ジョブを起動
   workflow_dispatch:
-
-concurrency:
-  group: "pages-and-release"
-  cancel-in-progress: true
+  push:
+    tags:
+      - 'v*'
 
 jobs:
-  # 1. WASM エンジンのビルド
-  goboscript-wasm:
-    name: Build Goboscript WASM
+  build-and-vsix:
+    name: Build WASM and Package VSIX
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout Goboscript Repository
+      - name: Checkout Main Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Goboscript WASM Repository
         uses: actions/checkout@v4
         with:
           repository: aspizu/goboscript
-          path: goboscript
+          path: goboscript_src
 
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: "latest"
 
-      - name: Setup Rust
+      - name: Setup Rust (Nightly)
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          toolchain: nightly
           rustflags: "-A warnings"
 
       - name: Build Goboscript WASM
         run: |
-          cd goboscript
-          # ブラウザでの利用を想定し --target web を採用
+          cd goboscript_src
+          # ブラウザ/拡張機能向けに --target web でビルド
           wasm-pack build --release --target web
 
-      - name: Upload Goboscript WASM Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: goboscript-wasm
-          path: goboscript/pkg
-
-  # 2. メインプロジェクトのビルドと Pages 準備
-  build:
-    name: Build Project
-    runs-on: ubuntu-latest
-    needs: goboscript-wasm
-    steps:
-      - name: Checkout Main Repository
-        uses: actions/checkout@v4
-
-      - name: Download Goboscript WASM Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: goboscript-wasm
-          # あなたのフォルダ構造に合わせて media/goboscript に配置
-          path: media/goboscript
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          cache: true
-
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Build Project
-        run: bun run build
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          name: github-pages
-          path: ./dist
-
-  # 4. GitHub Releases への自動投稿（タグプッシュ時のみ実行）
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: [goboscript-wasm, build]
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-    steps:
-      - name: Download Build Assets
-        uses: actions/download-artifact@v4
-        with:
-          name: goboscript-wasm
-          path: release_pkg
-
-      - name: Archive WASM for Release
+      - name: Prepare Extension Folder Structure
         run: |
-          tar -czvf goboscript-wasm-assets.tar.gz -C release_pkg .
+          # 1. media/goboscript フォルダを作成
+          mkdir -p media/goboscript
+          
+          # 2. ビルド成果物を指定の場所にコピー (ファイル名を標準的なものに調整)
+          # pkg内のファイル名はCargo.tomlに依存するため、cpでリネームしつつ配置
+          cp goboscript_src/pkg/libgoboscript_bg.wasm media/goboscript/libgoboscript_bg.wasm
+          cp goboscript_src/pkg/libgoboscript.js media/goboscript/libgoboscript.js
+          
+          # 3. 作業用の一時フォルダ 'extension' を作成し、中身をコピー
+          mkdir -p extension
+          # 必要なファイル・フォルダをすべて extension/ に集約
+          cp -r media src package.json README.md extension/
 
-      - name: Create Release
+      - name: Create VSIX Package
+        run: |
+          # extension フォルダを zip 圧縮し、gside.vsix に改名
+          zip -r gside.zip extension
+          mv gside.zip gside.vsix
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            goboscript-wasm-assets.tar.gz
-            release_pkg/goboscript_bg.wasm
-            release_pkg/goboscript.js
+          files: gside.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
