@@ -1,3 +1,5 @@
+[日本語](/Funaen/goboscript-vscode-ide/blob/main/README.ja.md)
+
 # goboscirpt IDE for VSCode
 
 A powerful development environment for goboscript, designed to streamline your workflow with real-time monitoring and debugging features.
