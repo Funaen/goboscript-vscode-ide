@@ -14,7 +14,7 @@ A powerful development environment for goboscript, designed to streamline your w
 
 ## Installation
 
-You can find the latest version on the **[Releases](/Funaen/goboscript-vscode-ide/releases)** page.
+You can find the latest version on the **[Releases](https://github.com/Funaen/goboscript-vscode-ide/releases)** page.
 Open VSCode > Extension > ... > Install from VSIX... and select the VSIX file.
 
 ## TODO
