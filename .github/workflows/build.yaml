@@ -38,6 +38,7 @@ jobs:
       - name: Build Goboscript WASM
         run: |
           cd goboscript_src
+          sed -i 's/wasm-opt = \[.*\]/wasm-opt = ["--enable-bulk-memory"]/' Cargo.toml
           # ブラウザ/拡張機能向けに --target web でビルド
           wasm-pack build --release --target web
 
