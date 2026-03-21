@@ -16,6 +16,24 @@
 **[Releases](https://github.com/Funaen/goboscript-vscode-ide/releases)**ページからVSIXファイルをダウンロードしてください。
 VSCodeに追加するには、Extension > ... > Install from VSIX...の順に進んで該当ファイルを選択します.
 
+## 使い方
+ワークスペースを開き、ctrl(command) + shift + Pでコマンド```goboscript: New Project```を実行します。
+以下のファイル構造で新しいプロジェクトが生成されます。
+```
+.
+├─ out
+├─ project
+│   ├─ assets
+│   │   └─ blank.svg
+│   ├─ goboscript.toml
+│   ├─ main.gs
+│   └─ stage.gs
+├─ .git
+└─ .gitignore
+```
+エディタタブにある```goboscript: Run Project```ボタンをクリックするか、コマンドを実行することでプロジェクトを実行できます。
+ステージが画面右側、コンソールが画面下部に開かれるので適宜サイズを調整してください。
+
 ## TODO
 
 - [ ] Variable Watcher
