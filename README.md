@@ -17,6 +17,22 @@ A powerful development environment for goboscript, designed to streamline your w
 You can find the latest version on the **[Releases](https://github.com/Funaen/goboscript-vscode-ide/releases)** page.
 Open VSCode > Extension > ... > Install from VSIX... and select the VSIX file.
 
+## Usage
+Open a workspace and run ```goboscript: New Project``` command.
+This will create a new project with the following structure:
+```
+.
+├─ out
+├─ project
+│   ├─ assets
+│   │   └─ blank.svg
+│   ├─ goboscript.toml
+│   ├─ main.gs
+│   └─ stage.gs
+├─ .git
+└─ .gitignore
+```
+
 ## TODO
 
 - [ ] Variable Watcher
