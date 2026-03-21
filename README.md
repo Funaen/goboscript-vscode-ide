@@ -32,7 +32,7 @@ This will create a new project with the following structure:
 ├─ .git
 └─ .gitignore
 ```
-Click ```goboscript: Run Project``` button or run the command to run your project.
+Click ```goboscript: Run Project``` button (or run the command) to run your project.
 This will open the stage on the right side of the editor and the console at the bottom.
 
 ## TODO
