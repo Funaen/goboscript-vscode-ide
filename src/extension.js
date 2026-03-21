@@ -161,7 +161,7 @@ function getHtml(webview, extensionUri) {
 					{
 						"imports": {
 							"goboscript": "${media(['goboscript', 'libgoboscript.js'])}",
-							"Scaffolding": "${media(['scaffolding.js'])}"
+							"Scaffolding": "${media(['scaffolding', 'scaffolding.js'])}"
 						}
 					}
 				</script>

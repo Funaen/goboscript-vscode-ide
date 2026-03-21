@@ -43,10 +43,7 @@ jobs:
           wasm-pack build --release --target web
 
       - name: Prepare Extension Folder Structure
-        run: |
-          # 1. media/goboscript フォルダを作成
-          mkdir -p media/goboscript
-          
+        run: | 
           # 2. ビルド成果物を指定の場所にコピー (ファイル名を標準的なものに調整)
           # pkg内のファイル名はCargo.tomlに依存するため、cpでリネームしつつ配置
           cp goboscript_src/pkg/libgoboscript_bg.wasm media/goboscript/libgoboscript_bg.wasm
