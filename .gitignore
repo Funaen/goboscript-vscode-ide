@@ -1,1 +1,3 @@
-media/goboscript
+media/goboscript/libgoboscript.js
+media/goboscript/libgoboscript_bg.wasm
+package-lock.json
