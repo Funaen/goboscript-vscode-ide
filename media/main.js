@@ -1,4 +1,5 @@
 import __wbg_init, * as goboscript from "goboscript";
+import toml from "toml";
 import "Scaffolding";
 const vscode = acquireVsCodeApi();
 
@@ -75,6 +76,21 @@ class main {
 				const [end, incEnd] = this.translatePosition(unit, diag.span.end);
 				const [startLineNumber, startColumn] = this.convertPosition(incStart, start);
 				const [endLineNumber, endColumn] = this.convertPosition(incEnd, end);
+				const level = [
+					"FollowedByUnreachableCode",
+					"UnrecognizedKey",
+					"UnusedVariable",
+					"UnusedList",
+					"UnusedEnum",
+					"UnusedStruct",
+					"UnusedProc",
+					"UnusedFunc",
+					"UnusedArg",
+					"UnusedStructField",
+					"UnusedEnumVariant"
+				].includes(Object.keys(diag.kind)[0]) ? 'warn' : 'error';
+				vscode.postMessage({ command: 'log', text: `COMPILE ERROR: ${msg} (${path}:${startLineNumber}:${startColumn})`, type: level });
+				if (level == 'warn') continue;
 				markers.push({
 					path,
 					msg,
@@ -83,7 +99,6 @@ class main {
 					endLineNumber: endLineNumber - 1,
 					endColumn: endColumn - 1
 				});
-				vscode.postMessage({ command: 'log', text: `COMPILE ERROR: ${msg} (${path}:${startLineNumber}:${startColumn})`, type: 'error' });
 				console.error(msg);
 			}
 		}
@@ -148,7 +163,7 @@ class main {
 		vscode.postMessage({ command: 'log', text: `COMPILE ERROR: invalid position ${position} in ${unit.path}`, type: 'error' });
 	}
 	static convertPosition({path}, position) {
-		const text = this.getFileText(path);
+		const text = this.getFileText(path, this.files).split(/\r?\n/);
 		let i = 0
 		let lineNumber = 0
 		for (const line of text) {
@@ -158,8 +173,8 @@ class main {
 		}
 		return [0, 0];
 	}
-	static getFileText(path) {
-		return new TextDecoder('utf-8').decode(new Uint8Array(this.files[path].data)).split(/\r?\n/);
+	static getFileText(path, files) {
+		return new TextDecoder('utf-8').decode(new Uint8Array(files[path].data));
 	}
 }
 
@@ -170,12 +185,15 @@ class gscompiler {
 		return goboscript.build(
 			{
 				files: Object.fromEntries(await Promise.all(Object.entries(files).map(
-					async([path, {data, type}]) => ([
-						path,
-						{
-							inner: await base64.encode(typeof data == "string" ? new Blob([data]) : data)
-						}
-					])
+					async ([path, {data}]) => {
+						const buffer = data instanceof Blob ? await data.arrayBuffer() : data;
+						return [
+							path,
+							{
+								inner: base64.encode(new Uint8Array(buffer))
+							}
+						];
+					}
 				)))
 			}
 		);
@@ -183,10 +201,17 @@ class gscompiler {
 	static getFiles() {
 		vscode.postMessage({ command: 'getFiles' });
 		return new Promise(resolve => {
-			let handler = (event) => {
+			let handler = async event => {
 				if (event.data.command === 'getFilesRes'){
 					window.removeEventListener('message', handler);
-					resolve(event.data.files);
+					let files = event.data.files;
+					const cfg = toml.parse(main.getFileText('project/goboscript.toml', files));
+					if (cfg.std) {
+						const std = (await import("gsstd", { with: { type: "json" } })).default;
+						if (cfg.std != std.version) vscode.postMessage({ command: 'log', text: `WARNING: Unsupported std version ${cfg.std} (expected ${std.version}). The project may not compile or run correctly.`, type: 'warn' });
+						files = {...files, ...Object.fromEntries(Object.entries(std.files).map(([path, file]) => [path, { data: base64.decode(file), type: 'Blob' }]))};
+					}
+					resolve(files);
 				}
 			};
 			window.addEventListener('message', handler);
