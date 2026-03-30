@@ -27,8 +27,7 @@ jobs:
 
       - name: Patch wasm.rs
         run: |
-          mkdir -p goboscript_src/src/visitor
-          cat <<'EOF' > goboscript_src/src/visitor/wasm.rs
+          cat <<'EOF' > goboscript_src/src/wasm.rs
           use std::{
               cell::RefCell,
               io::Cursor,
@@ -97,7 +96,7 @@ jobs:
       - name: Debug wasm.rs
         run: |
           echo "===== wasm.rs ====="
-          cat goboscript_src/src/visitor/wasm.rs
+          cat goboscript_src/src/wasm.rs
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
