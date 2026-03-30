@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout Main Repository
         uses: actions/checkout@v4
@@ -23,6 +24,76 @@ jobs:
         with:
           repository: aspizu/goboscript
           path: goboscript_src
+
+      - name: Patch wasm.rs
+        run: |
+          mkdir -p goboscript_src/src/visitor
+          cat <<'EOF' > goboscript_src/src/visitor/wasm.rs
+          use std::{
+              cell::RefCell,
+              io::Cursor,
+              rc::Rc,
+          };
+
+          use semver::Version;
+          use serde::{
+              Deserialize,
+              Serialize,
+          };
+          use tsify::Tsify;
+          use wasm_bindgen::{
+              prelude::*,
+              JsValue,
+          };
+
+          use crate::{
+              ast::Sprite,
+              codegen::sb3::Sb3,
+              diagnostic::{
+                  Artifact,
+                  Diagnostic,
+              },
+              frontend::build::build_impl,
+              misc::base64,
+              standard_library::StandardLibrary,
+              vfs::MemFS,
+          };
+
+          #[derive(Tsify, Serialize, Deserialize)]
+          #[tsify(into_wasm_abi, from_wasm_abi)]
+          pub struct Build {
+              #[serde(with = "base64")]
+              file: Vec<u8>,
+              artifact: Artifact,
+          }
+
+          #[wasm_bindgen]
+          pub fn build(fs: JsValue) -> JsValue {
+              let fs: MemFS = serde_wasm_bindgen::from_value(fs).unwrap();
+              let fs = Rc::new(RefCell::new(fs));
+              let mut file = Vec::new();
+              let sb3 = Sb3::new(Cursor::new(&mut file), fs.clone(), "project".into());
+              let stdlib = StandardLibrary {
+                  path: "stdlib".into(),
+                  version: Version::new(0, 0, 0),
+              };
+              let artifact = build_impl(fs, "project".into(), sb3, Some(stdlib)).unwrap();
+              serde_wasm_bindgen::to_value(&Build { file, artifact }).unwrap()
+          }
+
+          #[wasm_bindgen]
+          pub fn diagnostic_to_string(diagnostic: JsValue, sprite: JsValue) -> String {
+              match serde_wasm_bindgen::from_value::<Diagnostic>(diagnostic) {
+                  Ok(diagnostic) => {
+                      match serde_wasm_bindgen::from_value::<Sprite>(sprite) {
+                          Ok(sprite) => diagnostic.kind.to_string(&sprite),
+                          Err(e) => format!("Sprite deserialize error: {}", e),
+                      }
+                  }
+                  Err(e) => format!("Diagnostic deserialize error: {}", e),
+              }
+          }
+          EOF
 
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
@@ -34,32 +105,34 @@ jobs:
         with:
           toolchain: "nightly-2026-01-19"
           rustflags: "-A warnings"
+          # キャッシュでエラーが出ないよう workdir を指定
           cache-workdir: "goboscript_src"
 
       - name: Build Goboscript WASM
         run: |
           cd goboscript_src
           sed -i 's/wasm-opt = \[.*\]/wasm-opt = false/' Cargo.toml
-          # ブラウザ/拡張機能向けに --target web でビルド
           wasm-pack build --release --target web
 
       - name: Prepare Extension Folder Structure
-        run: | 
-          # 2. ビルド成果物を指定の場所にコピー (ファイル名を標準的なものに調整)
-          # pkg内のファイル名はCargo.tomlに依存するため、cpでリネームしつつ配置
+        run: |
+          mkdir -p media/goboscript
           cp goboscript_src/pkg/libgoboscript_bg.wasm media/goboscript/libgoboscript_bg.wasm
           cp goboscript_src/pkg/libgoboscript.js media/goboscript/libgoboscript.js
-          
-          # 3. 作業用の一時フォルダ 'extension' を作成し、中身をコピー
           mkdir -p extension
-          # 必要なファイル・フォルダをすべて extension/ に集約
           cp -r media src package.json README.md extension/
 
       - name: Create VSIX Package
         run: |
-          # extension フォルダを zip 圧縮し、gside.vsix に改名
           zip -r gside.zip extension
           mv gside.zip gside.vsix
+
+      # 成果物をGitHub Actionsの画面からダウンロードできるようにする
+      - name: Upload VSIX Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goboscript-extension-vsix
+          path: gside.vsix
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
