@@ -38,9 +38,8 @@ jobs:
           };
 
           use crate::misc::SmolStr;
-
-          #[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
-          #[serde(untagged)]
+          use tsify::Tsify;
+          #[derive(Debug, Clone, Tsify)]
           #[tsify(into_wasm_abi, from_wasm_abi)]
           pub enum Value {
               Boolean(bool),
