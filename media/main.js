@@ -71,7 +71,7 @@ class main {
 		for (const [name, {diagnostics, translation_unit: unit, translation_unit: {path}}] of [...artifact.sprites_diagnostics, ['stage', artifact.stage_diagnostics]]) {
 			if (!diagnostics.length) continue;
 			for (const diag of diagnostics) {
-				const msg = goboscript.diagnostic_to_string(diag, name == "stage" ? artifact.project.stage : artifact.project.sprites.get(name));
+				const msg = goboscript.diagnostic_to_string(diag, JSON.stringify(name == "stage" ? artifact.project.stage : artifact.project.sprites.get(name)));
 				const [start, incStart] = this.translatePosition(unit, diag.span.start);
 				const [end, incEnd] = this.translatePosition(unit, diag.span.end);
 				const [startLineNumber, startColumn] = this.convertPosition(incStart, start);
