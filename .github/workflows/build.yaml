@@ -94,7 +94,10 @@ jobs:
               }
           }
           EOF
-
+      - name: Debug wasm.rs
+        run: |
+          echo "===== wasm.rs ====="
+          cat goboscript_src/src/visitor/wasm.rs
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
