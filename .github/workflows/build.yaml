@@ -79,24 +79,26 @@ jobs:
               serde_wasm_bindgen::to_value(&Build { file, artifact }).unwrap()
           }
 
+          use wasm_bindgen::prelude::*;
+          use serde_json;
+
           #[wasm_bindgen]
-          pub fn diagnostic_to_string(diagnostic: JsValue, sprite_json: String) -> String {
-              // Sprite JSON → Rust struct
+          pub fn diagnostic_to_string(
+              diagnostic: JsValue,
+              sprite_json: String,
+          ) -> String {
               let sprite: Sprite = match serde_json::from_str(&sprite_json) {
                   Ok(s) => s,
-                  Err(e) => {
-                      return format!("Sprite JSON deserialize error: {}", e);
-                  }
+                  Err(e) => return format!("Sprite JSON deserialize error: {}", e),
               };
-              match serde_wasm_bindgen::from_value::<Diagnostic>(diagnostic) {
-                  Ok(diagnostic) => {
-                      match serde_wasm_bindgen::from_value::<Sprite>(sprite) {
-                          Ok(sprite) => diagnostic.kind.to_string(&sprite),
-                          Err(e) => format!("Sprite deserialize error: {}", e),
-                      }
-                  }
-                  Err(e) => format!("Diagnostic deserialize error: {}", e),
-              }
+
+              let diagnostic: Diagnostic =
+                  match serde_wasm_bindgen::from_value(diagnostic) {
+                      Ok(d) => d,
+                      Err(e) => return format!("Diagnostic deserialize error: {}", e),
+                  };
+
+              diagnostic_to_string_internal(&diagnostic, &sprite)
           }
           EOF
       - name: Debug wasm.rs
